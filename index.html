@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Lucky Wheel Mobile</title>
+    <title>Vòng quay may mắn</title>
     <style>
         body { 
             display: flex; flex-direction: column; align-items: center; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             background-color: #f0f2f5; margin: 0; overflow: hidden;
         }
         .wheel-container {
-            position: relative; width: 320px; height: 320px; margin-top: 50px;
+            position: relative; width: 340px; height: 340px; margin-top: 50px;
         }
         #wheel {
             width: 100%; height: 100%; border-radius: 50%;
-            border: 8px solid #333;
+            border: 10px solid #333;
             transition: transform 4s cubic-bezier(0.2, 0, 0.2, 1);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            background-color: white;
         }
         .pointer {
             position: absolute; top: -15px; left: 50%;
@@ -25,24 +26,24 @@
             width: 0; height: 0;
             border-left: 15px solid transparent;
             border-right: 15px solid transparent;
-            border-top: 30px solid #e74c3c;
-            z-index: 10; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+            border-top: 35px solid #e74c3c;
+            z-index: 10; filter: drop-shadow(0 3px 2px rgba(0,0,0,0.3));
         }
         button {
-            margin-top: 40px; padding: 15px 50px; font-size: 20px;
-            font-weight: bold; background: #27ae60; color: white;
+            margin-top: 40px; padding: 15px 60px; font-size: 22px;
+            font-weight: bold; background: #e67e22; color: white;
             border: none; border-radius: 50px;
-            box-shadow: 0 5px #1e8449; cursor: pointer;
+            box-shadow: 0 6px #d35400; cursor: pointer;
             -webkit-tap-highlight-color: transparent;
         }
-        button:active { transform: translateY(3px); box-shadow: 0 2px #1e8449; }
+        button:active { transform: translateY(3px); box-shadow: 0 3px #d35400; }
     </style>
 </head>
 <body>
 
 <div class="wheel-container">
     <div class="pointer"></div>
-    <canvas id="wheel" width="500" height="500"></canvas>
+    <canvas id="wheel" width="600" height="600"></canvas>
 </div>
 <button id="spinBtn">QUAY NGAY</button>
 
@@ -51,13 +52,18 @@
     const ctx = canvas.getContext('2d');
     const spinBtn = document.getElementById('spinBtn');
     
-    // 1. CẤU HÌNH PHẦN THƯỞNG
+    // 1. DANH SÁCH GIẢI THƯỞNG (Cấu hình Weight để chỉnh tỉ lệ)
     const prizes = [
-        { label: "Voucher 10k", color: "#ff9f43", weight: 40 }, 
-        { label: "Thẻ 50k", color: "#0abde3", weight: 10 },
-        { label: "500k", color: "#f1c40f", weight: 1 },
-        { label: "Voucher 20k", color: "#5f27cd", weight: 19 },
-        { label: "Chúc may mắn", color: "#ee5253", weight: 30 }
+        { label: "1k", color: "#1abc9c", weight: 1 }, 
+        { label: "2k", color: "#2ecc71", weight: 3 },
+        { label: "5k", color: "#3498db", weight: 10 },
+        { label: "10k", color: "#9b59b6", weight: 20 },
+        { label: "20k", color: "#34495e", weight: 15 },
+        { label: "50k", color: "#f1c40f", weight: 5 },
+        { label: "100k", color: "#e67e22", weight: 3 },
+        { label: "200k", color: "#e74c3c", weight: 1 },
+        { label: "500k", color: "#c0392b", weight: 0 },
+        { label: "Mất lượt", color: "#7f8c8d", weight: 5 }
     ];
 
     const size = prizes.length;
@@ -65,14 +71,14 @@
     let currentRotation = 0;
     let isSpinning = false;
 
-    // 2. HỆ THỐNG ÂM THANH (Tạo tiếng "tạch" bằng Oscillator)
+    // 2. ÂM THANH
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playTickSound() {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.1);
         gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
         osc.connect(gain);
@@ -81,43 +87,41 @@
         osc.stop(audioCtx.currentTime + 0.1);
     }
 
-    // 3. VẼ VÒNG QUAY
+    // 3. VẼ VÒNG QUAY (Tối ưu cho 10 ô)
     function drawWheel() {
         prizes.forEach((prize, i) => {
             const angle = i * arc;
             ctx.beginPath();
             ctx.fillStyle = prize.color;
-            ctx.moveTo(250, 250);
-            ctx.arc(250, 250, 250, angle, angle + arc);
+            ctx.moveTo(300, 300);
+            ctx.arc(300, 300, 300, angle, angle + arc);
             ctx.fill();
-            ctx.strokeStyle = "white";
+            ctx.strokeStyle = "rgba(255,255,255,0.5)";
             ctx.lineWidth = 2;
             ctx.stroke();
 
             ctx.save();
-            ctx.translate(250, 250);
+            ctx.translate(300, 300);
             ctx.rotate(angle + arc / 2);
             ctx.fillStyle = "white";
             ctx.textAlign = "right";
-            ctx.font = "bold 24px Arial";
-            ctx.fillText(prize.label, 230, 10);
+            // Giảm cỡ chữ xuống 20px để không bị tràn ô
+            ctx.font = "bold 20px Arial";
+            ctx.fillText(prize.label, 280, 10);
             ctx.restore();
         });
     }
 
-    // 4. THEO DÕI VỊ TRÍ ĐỂ PHÁT ÂM THANH
+    // 4. KIỂM TRA TIẾNG TẠCH THEO THỜI GIAN THỰC
     let lastTickAngle = 0;
-    function checkTick(timestamp) {
+    function checkTick() {
         if (!isSpinning) return;
-
-        // Lấy góc quay hiện tại từ computed style để chính xác theo animation
         const style = window.getComputedStyle(canvas);
         const matrix = new DOMMatrix(style.transform);
         const angle = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI);
         const positiveAngle = (angle + 360) % 360;
-
         const degreesPerSlice = 360 / size;
-        // Nếu góc quay vừa lướt qua một mốc của ô mới
+
         if (Math.floor(positiveAngle / degreesPerSlice) !== Math.floor(lastTickAngle / degreesPerSlice)) {
             playTickSound();
         }
@@ -125,10 +129,10 @@
         requestAnimationFrame(checkTick);
     }
 
-    // 5. LOGIC QUAY
+    // 5. LOGIC QUAY KHỚP VỚI MŨI TÊN
     function spin() {
         if (isSpinning) return;
-        if (audioCtx.state === 'suspended') audioCtx.resume(); // Kích hoạt âm thanh trên iPhone
+        if (audioCtx.state === 'suspended') audioCtx.resume();
 
         isSpinning = true;
         const totalWeight = prizes.reduce((acc, p) => acc + p.weight, 0);
@@ -140,17 +144,23 @@
         }
         
         const degreesPerSlice = 360 / size;
-        const extraSpins = 1800; 
+        const extraSpins = 2160; // Quay 6 vòng
+        // Công thức tính toán điểm dừng khớp 100% với mũi tên 12 giờ
         const stopAngle = (360 - (winningIndex * degreesPerSlice)) - (degreesPerSlice / 2) - 90;
         
-        currentRotation += extraSpins + (stopAngle - (currentRotation % 360) + 360) % 360;
+        // Tính toán tổng góc quay để không bị giật
+        const currentMod = currentRotation % 360;
+        const targetRotation = extraSpins + (stopAngle - currentMod + 360) % 360;
+        currentRotation += targetRotation;
         
         canvas.style.transform = `rotate(${currentRotation}deg)`;
         requestAnimationFrame(checkTick);
 
         setTimeout(() => {
             isSpinning = false;
-            alert("Chúc mừng! Bạn nhận được: " + prizes[winningIndex].label);
+            // Hiển thị thông báo đẹp hơn
+            const result = prizes[winningIndex].label;
+            alert(result === "Mất lượt" ? "Rất tiếc! Chúc bạn may mắn lần sau." : "Chúc mừng! Bạn trúng: " + result);
         }, 4000);
     }
 
@@ -160,4 +170,3 @@
 
 </body>
 </html>
-
