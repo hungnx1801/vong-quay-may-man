@@ -3,92 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Vòng quay may mắn</title>
+    <title>Lucky Wheel Pro Custom</title>
     <style>
+        :root { --primary: #e67e22; --dark: #2c3e50; --bg: #f0f2f5; }
         body { 
             display: flex; flex-direction: column; align-items: center; 
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background-color: #f0f2f5; margin: 0; overflow: hidden;
+            font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding-bottom: env(safe-area-inset-bottom);
         }
-        .wheel-container {
-            position: relative; width: 340px; height: 340px; margin-top: 50px;
-        }
-        #wheel {
-            width: 100%; height: 100%; border-radius: 50%;
-            border: 10px solid #333;
-            transition: transform 4s cubic-bezier(0.2, 0, 0.2, 1);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            background-color: white;
+        
+        /* Vòng quay */
+        .wheel-container { position: relative; width: 320px; height: 320px; margin-top: 40px; }
+        #wheel { 
+            width: 100%; height: 100%; border-radius: 50%; border: 10px solid var(--dark);
+            transition: transform 4s cubic-bezier(0.2, 0, 0.2, 1); background: white;
         }
         .pointer {
-            position: absolute; top: -15px; left: 50%;
-            transform: translateX(-50%);
-            width: 0; height: 0;
-            border-left: 15px solid transparent;
-            border-right: 15px solid transparent;
-            border-top: 35px solid #e74c3c;
-            z-index: 10; filter: drop-shadow(0 3px 2px rgba(0,0,0,0.3));
+            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 15px solid transparent;
+            border-right: 15px solid transparent; border-top: 35px solid #e74c3c;
+            z-index: 10; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
         }
-        button {
-            margin-top: 40px; padding: 15px 60px; font-size: 22px;
-            font-weight: bold; background: #e67e22; color: white;
-            border: none; border-radius: 50px;
-            box-shadow: 0 6px #d35400; cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
+
+        /* Nút điều khiển chính */
+        .btn-spin { 
+            background: var(--primary); color: white; font-size: 22px; font-weight: bold;
+            padding: 15px 60px; border: none; border-radius: 50px; margin-top: 30px;
+            box-shadow: 0 6px #d35400; cursor: pointer; -webkit-tap-highlight-color: transparent;
         }
-        button:active { transform: translateY(3px); box-shadow: 0 3px #d35400; }
+        .btn-spin:active { transform: translateY(3px); box-shadow: 0 3px #d35400; }
+
+        /* Nút mở cài đặt */
+        .settings-toggle {
+            position: fixed; top: 20px; right: 20px; background: white;
+            padding: 10px; border-radius: 50%; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            cursor: pointer; z-index: 100;
+        }
+
+        /* Panel cài đặt ẩn hiện */
+        .admin-panel { 
+            position: fixed; bottom: 0; left: 0; right: 0; background: white;
+            padding: 20px; border-radius: 25px 25px 0 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+            z-index: 99; transform: translateY(100%); transition: transform 0.4s ease;
+            max-height: 80vh; overflow-y: auto;
+        }
+        .admin-panel.open { transform: translateY(0); }
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4); 
+            display: none; z-index: 98;
+        }
+
+        /* Nội dung panel */
+        .prize-item { display: flex; gap: 8px; margin-bottom: 12px; }
+        input { padding: 8px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        .input-label { flex: 1; }
+        .input-weight { width: 60px; }
+        .btn-add { background: #2ecc71; color: white; width: 100%; padding: 12px; border: none; border-radius: 10px; margin-top: 10px; font-weight: bold; }
+        .btn-close { background: #eee; width: 100%; padding: 12px; border: none; border-radius: 10px; margin-top: 10px; }
+        h3 { margin-top: 0; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
+
+<div class="settings-toggle" onclick="toggleSettings()">⚙️</div>
+<div class="overlay" id="overlay" onclick="toggleSettings()"></div>
 
 <div class="wheel-container">
     <div class="pointer"></div>
     <canvas id="wheel" width="600" height="600"></canvas>
 </div>
-<button id="spinBtn">QUAY NGAY</button>
+
+<button class="btn-spin" id="spinBtn">QUAY NGAY</button>
+
+<div class="admin-panel" id="adminPanel">
+    <h3>Thiết lập giải thưởng <span style="font-size: 12px; color: #7f8c8d;">(Tự động lưu)</span></h3>
+    <div id="prizeList"></div>
+    <button class="btn-add" onclick="addPrize()">+ Thêm ô mới</button>
+    <button class="btn-close" onclick="toggleSettings()">Xong</button>
+</div>
 
 <script>
     const canvas = document.getElementById('wheel');
     const ctx = canvas.getContext('2d');
     const spinBtn = document.getElementById('spinBtn');
     
-    // 1. DANH SÁCH GIẢI THƯỞNG (Cấu hình Weight để chỉnh tỉ lệ)
-    const prizes = [
-        { label: "1k", color: "#1abc9c", weight: 1 }, 
-        { label: "2k", color: "#2ecc71", weight: 3 },
-        { label: "5k", color: "#3498db", weight: 5 },
-        { label: "10k", color: "#9b59b6", weight: 15 },
-        { label: "20k", color: "#34495e", weight: 10 },
-        { label: "50k", color: "#f1c40f", weight: 5 },
-        { label: "100k", color: "#e67e22", weight: 3 },
-        { label: "200k", color: "#e74c3c", weight: 1 },
-        { label: "500k", color: "#c0392b", weight: 0 },
-        { label: "Mất lượt", color: "#7f8c8d", weight: 5 }
+    // 1. TẢI DỮ LIỆU TỪ LOCALSTORAGE HOẶC MẶC ĐỊNH
+    let prizes = JSON.parse(localStorage.getItem('myPrizes')) || [
+        { label: "1k", color: "#1abc9c", weight: 50 },
+        { label: "10k", color: "#9b59b6", weight: 10 },
+        { label: "500k", color: "#e74c3c", weight: 1 },
+        { label: "Mất lượt", color: "#95a5a6", weight: 20 }
     ];
 
-    const size = prizes.length;
-    const arc = (2 * Math.PI) / size;
     let currentRotation = 0;
     let isSpinning = false;
-
-    // 2. ÂM THANH
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playTickSound() {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.1);
+
+    function toggleSettings() {
+        const panel = document.getElementById('adminPanel');
+        const overlay = document.getElementById('overlay');
+        const isOpen = panel.classList.toggle('open');
+        overlay.style.display = isOpen ? 'block' : 'none';
+        if(!isOpen) updateWheel(); // Vẽ lại khi đóng
     }
 
-    // 3. VẼ VÒNG QUAY (Tối ưu cho 10 ô)
-    function drawWheel() {
+    function renderAdminPanel() {
+        const container = document.getElementById('prizeList');
+        container.innerHTML = '';
+        prizes.forEach((p, i) => {
+            container.innerHTML += `
+                <div class="prize-item">
+                    <input type="color" value="${p.color}" onchange="updateData(${i}, 'color', this.value)">
+                    <input type="text" class="input-label" value="${p.label}" onchange="updateData(${i}, 'label', this.value)">
+                    <input type="number" class="input-weight" value="${p.weight}" onchange="updateData(${i}, 'weight', parseInt(this.value))">
+                    <button style="border:none; background:none; font-size:20px;" onclick="deletePrize(${i})">🗑️</button>
+                </div>
+            `;
+        });
+    }
+
+    function updateData(index, key, value) {
+        prizes[index][key] = value;
+        localStorage.setItem('myPrizes', JSON.stringify(prizes));
+        updateWheel();
+    }
+
+    function addPrize() {
+        const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+        prizes.push({ label: "Mới", color: randomColor, weight: 10 });
+        localStorage.setItem('myPrizes', JSON.stringify(prizes));
+        renderAdminPanel();
+        updateWheel();
+    }
+
+    function deletePrize(index) {
+        if(prizes.length <= 2) return;
+        prizes.splice(index, 1);
+        localStorage.setItem('myPrizes', JSON.stringify(prizes));
+        renderAdminPanel();
+        updateWheel();
+    }
+
+    function updateWheel() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const arc = (2 * Math.PI) / prizes.length;
         prizes.forEach((prize, i) => {
             const angle = i * arc;
             ctx.beginPath();
@@ -96,45 +153,32 @@
             ctx.moveTo(300, 300);
             ctx.arc(300, 300, 300, angle, angle + arc);
             ctx.fill();
-            ctx.strokeStyle = "rgba(255,255,255,0.5)";
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
             ctx.save();
             ctx.translate(300, 300);
-            ctx.rotate(angle + arc / 2);
+            ctx.rotate(angle + arc/2);
             ctx.fillStyle = "white";
             ctx.textAlign = "right";
-            // Giảm cỡ chữ xuống 20px để không bị tràn ô
             ctx.font = "bold 20px Arial";
-            ctx.fillText(prize.label, 280, 10);
+            ctx.fillText(prize.label, 275, 10);
             ctx.restore();
         });
     }
 
-    // 4. KIỂM TRA TIẾNG TẠCH THEO THỜI GIAN THỰC
-    let lastTickAngle = 0;
-    function checkTick() {
-        if (!isSpinning) return;
-        const style = window.getComputedStyle(canvas);
-        const matrix = new DOMMatrix(style.transform);
-        const angle = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI);
-        const positiveAngle = (angle + 360) % 360;
-        const degreesPerSlice = 360 / size;
-
-        if (Math.floor(positiveAngle / degreesPerSlice) !== Math.floor(lastTickAngle / degreesPerSlice)) {
-            playTickSound();
-        }
-        lastTickAngle = positiveAngle;
-        requestAnimationFrame(checkTick);
+    // ÂM THANH & QUAY
+    function playTickSound() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
     }
 
-    // 5. LOGIC QUAY KHỚP VỚI MŨI TÊN
     function spin() {
         if (isSpinning) return;
         if (audioCtx.state === 'suspended') audioCtx.resume();
-
         isSpinning = true;
+
         const totalWeight = prizes.reduce((acc, p) => acc + p.weight, 0);
         let random = Math.random() * totalWeight;
         let winningIndex = 0;
@@ -142,35 +186,34 @@
             if (random < prizes[i].weight) { winningIndex = i; break; }
             random -= prizes[i].weight;
         }
-        
-        const degreesPerSlice = 360 / size;
-        const extraSpins = 2160; // Quay 6 vòng
-        // Công thức tính toán điểm dừng khớp 100% với mũi tên 12 giờ
+
+        const degreesPerSlice = 360 / prizes.length;
         const stopAngle = (360 - (winningIndex * degreesPerSlice)) - (degreesPerSlice / 2) - 90;
-        
-        // Tính toán tổng góc quay để không bị giật
-        const currentMod = currentRotation % 360;
-        const targetRotation = extraSpins + (stopAngle - currentMod + 360) % 360;
-        currentRotation += targetRotation;
-        
+        currentRotation += 1800 + (stopAngle - (currentRotation % 360) + 360) % 360;
         canvas.style.transform = `rotate(${currentRotation}deg)`;
-        requestAnimationFrame(checkTick);
+
+        let lastTick = 0;
+        const check = () => {
+            if (!isSpinning) return;
+            const style = window.getComputedStyle(canvas);
+            const matrix = new DOMMatrix(style.transform);
+            const angle = Math.atan2(matrix.b, matrix.a) * (180/Math.PI);
+            const pos = (angle + 360) % 360;
+            if (Math.floor(pos/degreesPerSlice) !== lastTick) playTickSound();
+            lastTick = Math.floor(pos/degreesPerSlice);
+            requestAnimationFrame(check);
+        }
+        check();
 
         setTimeout(() => {
             isSpinning = false;
-            // Hiển thị thông báo đẹp hơn
-            const result = prizes[winningIndex].label;
-            alert(result === "Mất lượt" ? "Rất tiếc! Chúc bạn may mắn lần sau." : "Chúc mừng! Bạn trúng: " + result);
+            alert("KẾT QUẢ: " + prizes[winningIndex].label);
         }, 4000);
     }
 
-    drawWheel();
     spinBtn.addEventListener('click', spin);
+    renderAdminPanel();
+    updateWheel();
 </script>
-
 </body>
 </html>
-
-
-
-
